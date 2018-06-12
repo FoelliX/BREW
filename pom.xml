@@ -1,0 +1,164 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>de.foellix</groupId>
+	<artifactId>BREW</artifactId>
+	<version>1.1.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<name>BREW</name>
+	<description>Benchmark Refinement and Execution Wizard</description>
+
+	<properties>
+		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<timestamp>${maven.build.timestamp}</timestamp>
+		<maven.build.timestamp.format>ddMMyyyyHHmmssS</maven.build.timestamp.format>
+	</properties>
+
+	<profiles>
+		<profile>
+			<id>Windows</id>
+			<activation>
+				<os>
+					<family>Windows</family>
+				</os>
+			</activation>
+			<properties>
+				<script.extension>.bat</script.extension>
+			</properties>
+		</profile>
+		<profile>
+			<id>unix</id>
+			<activation>
+				<os>
+					<family>unix</family>
+				</os>
+			</activation>
+			<properties>
+				<script.extension>.sh</script.extension>
+			</properties>
+		</profile>
+	</profiles>
+
+	<build>
+		<defaultGoal>clean install exec:exec</defaultGoal>
+		<directory>target</directory>
+
+		<outputDirectory>target/classes</outputDirectory>
+		<sourceDirectory>src</sourceDirectory>
+		<resources>
+			<resource>
+				<directory>${project.basedir}</directory>
+				<includes>
+					<include>tool.properties</include>
+				</includes>
+				<filtering>true</filtering>
+			</resource>
+			<resource>
+				<directory>${project.basedir}</directory>
+				<includes>
+					<include>manual.pdf</include>
+				</includes>
+				<targetPath>${project.basedir}/target/build</targetPath>
+			</resource>
+			<resource>
+				<directory>${project.basedir}/mvn</directory>
+				<includes>
+					<include>flushMemory.sh</include>
+					<include>killpid.sh</include>
+					<include>*.xml</include>
+				</includes>
+				<targetPath>${project.basedir}/target/build</targetPath>
+			</resource>
+			<resource>
+				<directory>${project.basedir}/data</directory>
+				<includes>
+					<include>**/*</include>
+				</includes>
+				<excludes>
+					<exclude>pscout/**/*</exclude>
+					<exclude>storage/**/*</exclude>
+					<exclude>gui/temp.png</exclude>
+					<exclude>**/*.ser</exclude>
+					<exclude>**/*.psd</exclude>
+				</excludes>
+				<targetPath>${project.basedir}/target/build/data</targetPath>
+			</resource>
+		</resources>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>
+										de.foellix.aql.ggwiz.BREW
+									</mainClass>
+								</manifest>
+							</archive>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+							<outputDirectory>${project.basedir}/target/build</outputDirectory>
+							<finalName>${project.name}-${project.version}</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>1.6.0</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>exec</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<executable>mvn/build${script.extension}</executable>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<repositories>
+		<!-- https://sable.github.io/soot/ -->
+		<repository>
+			<id>soot-release</id>
+			<name>soot releases</name>
+			<url>https://soot-build.cs.uni-paderborn.de/nexus/repository/soot-release/</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<!-- https://sable.github.io/soot/ -->
+		<dependency>
+			<groupId>ca.mcgill.sable</groupId>
+			<artifactId>soot</artifactId>
+			<version>3.0.0</version>
+		</dependency>
+
+		<!-- AQL Project -->
+		<dependency>
+			<groupId>de.foellix</groupId>
+			<artifactId>AQL-System</artifactId>
+			<version>1.1.0-SNAPSHOT</version>
+			<scope>compile</scope>
+		</dependency>
+	</dependencies>
+</project>
