@@ -9,6 +9,7 @@
 
 	<name>BREW</name>
 	<description>Benchmark Refinement and Execution Wizard</description>
+	<url>https://FoelliX.github.io/BREW</url>
 
 	<properties>
 		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
@@ -133,6 +134,20 @@
 					<executable>mvn/build${script.extension}</executable>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>3.0.1</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar-no-fork</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
@@ -161,4 +176,27 @@
 			<scope>compile</scope>
 		</dependency>
 	</dependencies>
+
+	<developers>
+		<developer>
+			<name>Felix Pauck</name>
+			<email>fpauck@mail.uni-paderborn.de</email>
+			<organization>Paderborn University</organization>
+			<organizationUrl>https://cs.uni-paderborn.de</organizationUrl>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git://github.com/FoelliX/BREW.git</connection>
+		<developerConnection>scm:git:ssh://github.com:FoelliX/BREW.git</developerConnection>
+		<url>http://github.io/FoelliX/BREW</url>
+	</scm>
+
+	<licenses>
+		<license>
+			<name>GNU General Public License v3.0</name>
+			<url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+		</license>
+	</licenses>
+
 </project>
