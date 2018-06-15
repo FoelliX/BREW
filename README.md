@@ -6,7 +6,7 @@
 The Benchmark Refinement and Execution Wizard (BREW) can be used to do what the name suggests, first refine and then execute a benchmark.
 For the refinement step it guides the user through 3 steps, all adding additional and typically missing information to a benchmark.
 <p align="center">
-	<a href="screens.jpg" target="_blank"><img src="screens.jpg" /></a>
+	<a href="screens.png" target="_blank"><img src="screens.png" /></a>
 </p>
 The benchmark execution can be started directly via the GUI shown above or via command line.
 
