@@ -12,8 +12,8 @@ The benchmark execution can be started directly via the GUI shown above or via c
 
 ## Usage
 Our wiki contains [tutorials](https://github.com/FoelliX/BREW/wiki) on how to use BREW.
-However, in order to execute benchmark the underlying [AQL-System](https://github.com/FoelliX/AQL-System) must be configured.
-A tutorial that explains the configuration process can be found: [here](https://github.com/FoelliX/AQL-System/wiki).
+However, in order to execute benchmarks the underlying [AQL-System](https://github.com/FoelliX/AQL-System) must be configured.
+A tutorial that explains the configuration process can be found: [here](https://github.com/FoelliX/AQL-System/wiki/Configuration).
 
 
 ## Publications
