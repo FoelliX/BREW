@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<!--
+%QUERY%:		The original query before applying the rule without question mark, if the original query ends with a question mark
+%FILE_i%:		File number i (i in [1, n]) from the original query
+%FEATURE_i%:	Feature number i (i in [1, n]) from the original query
+%FEATURES%:		All features from the original query
+-->
+
+<rules>
+	<rule always="false">
+		<priority feature="IAC">2</priority>
+		<query>%QUERY% ?</query>
+	</rule>
+	<rule always="false">
+		<priority feature="ICC">2</priority>
+		<query>MATCH [ Flows IN App(%FILE_1%) FEATURING %FEATURES% ?, Flows IN App(%FILE_1%) FEATURING 'FlowDroid2' ?, IntentSources IN App(%FILE_1%) FEATURING %FEATURES% ?, IntentSinks IN App(%FILE_1%) FEATURING %FEATURES% ? ]</query>
+	</rule>
+	<rule always="false">
+		<priority feature="ICC, Reflection">3</priority>
+		<query>MATCH [ Flows IN App(%FILE_1% | 'DEOBFUSCATE') FEATURING %FEATURES% ?, Flows IN App(%FILE_1% | 'DEOBFUSCATE') FEATURING 'FlowDroid2' ?, IntentSources IN App(%FILE_1% | 'DEOBFUSCATE') FEATURING %FEATURES% ?, IntentSinks IN App(%FILE_1% | 'DEOBFUSCATE') FEATURING %FEATURES% ? ]</query>
+	</rule>
+	<rule always="false">
+		<priority feature="Native">2</priority>
+		<query>CONNECT [ Flows IN App(%FILE_1%) FEATURING 'NOAH', %FEATURE_2% ?, Flows IN App(%FILE_1% | 'ADAPT') FEATURING %FEATURES% ? ]</query>
+	</rule>
+</rules>

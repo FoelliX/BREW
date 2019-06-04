@@ -38,10 +38,13 @@ public class TPFPSelector extends TableView<TPFP> {
 	private int totalMax, totalDone, currentMax, currentDone;
 	private boolean restore;
 
+	private FilteredList<TPFP> filteredData;
+	private long lastRefresh;
+
 	public TPFPSelector() {
 		super();
 
-		final FilteredList<TPFP> filteredData = new FilteredList<>(Data.getInstance().getTPFPs(), tpfp -> {
+		this.filteredData = new FilteredList<>(Data.getInstance().getTPFPs(), tpfp -> {
 			for (final String part : MenuBar.searchField.getText().toLowerCase().split(" ")) {
 				if (!tpfp.getCase().toLowerCase().contains(part)
 						&& !tpfp.getTestcaseComplete().toLowerCase().contains(part)) {
@@ -51,17 +54,31 @@ public class TPFPSelector extends TableView<TPFP> {
 			return true;
 		});
 		MenuBar.searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-			filteredData.setPredicate(tpfp -> {
-				for (final String part : newValue.toLowerCase().split(" ")) {
-					if (!tpfp.getCase().toLowerCase().contains(part)
-							&& !tpfp.getTestcaseComplete().toLowerCase().contains(part)) {
-						return false;
-					}
+			this.lastRefresh = System.currentTimeMillis();
+			final long localLastRefresh = this.lastRefresh;
+
+			new Thread(() -> {
+				try {
+					Thread.sleep(500);
+				} catch (final InterruptedException e) {
+					// do nothing
 				}
-				return true;
-			});
+
+				if (this.lastRefresh == localLastRefresh) {
+					this.filteredData.setPredicate(tpfp -> {
+						for (final String part : newValue.toLowerCase().split(" ")) {
+							if (!tpfp.getCase().toLowerCase().contains(part) && (tpfp.getTestcaseComplete() != null
+									&& !tpfp.getTestcaseComplete().toLowerCase().contains(part))) {
+								return false;
+							}
+						}
+						return true;
+					});
+					refresh();
+				}
+			}).start();
 		});
-		this.setItems(filteredData);
+		this.setItems(this.filteredData);
 
 		final TableColumn<TPFP, Integer> colID = new TableColumn<TPFP, Integer>("ID");
 		colID.setCellValueFactory(new PropertyValueFactory<TPFP, Integer>("id"));
@@ -157,9 +174,10 @@ public class TPFPSelector extends TableView<TPFP> {
 				final Runner runner = new Runner(this.getSelectionModel().getSelectedItem());
 				final String query = runner.getQuery(true);
 				Statistics.getInstance().setInformation(
-						"From:\n"
-								+ Helper.toString(this.getSelectionModel().getSelectedItem().getFrom().getReference()),
-						"To:\n" + Helper.toString(this.getSelectionModel().getSelectedItem().getTo().getReference()),
+						"From:\n" + Helper.toString(this.getSelectionModel().getSelectedItem().getFrom().getReference(),
+								"\n->"),
+						"To:\n" + Helper.toString(this.getSelectionModel().getSelectedItem().getTo().getReference(),
+								"\n->"),
 						"Query:\n" + (query == null
 								? "** The current configuration does not allow an appropiate query formulation for this case. **"
 								: query));
@@ -336,7 +354,7 @@ public class TPFPSelector extends TableView<TPFP> {
 												current = index;
 											}
 										}
-									} catch (final ArrayIndexOutOfBoundsException e) {
+									} catch (final IndexOutOfBoundsException e) {
 										index = -2;
 									}
 									if (index >= 0) {
@@ -386,7 +404,7 @@ public class TPFPSelector extends TableView<TPFP> {
 	public void refresh() {
 		super.refresh();
 		Platform.runLater(() -> {
-			Statistics.getInstance().refresh();
+			Statistics.getInstance().refresh(this.filteredData);
 		});
 	}
 }

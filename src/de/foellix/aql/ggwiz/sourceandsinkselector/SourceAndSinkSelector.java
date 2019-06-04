@@ -31,6 +31,8 @@ public class SourceAndSinkSelector extends TableView<SourceOrSink> {
 
 	private boolean hideUnchecked = false;
 
+	private long lastRefresh;
+
 	public SourceAndSinkSelector(Stage stage) {
 		super();
 		this.stage = stage;
@@ -49,18 +51,32 @@ public class SourceAndSinkSelector extends TableView<SourceOrSink> {
 					return true;
 				});
 		MenuBar.searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-			filteredData.setPredicate(sourceOrSink -> {
-				if (this.hideUnchecked && !sourceOrSink.isSink() && !sourceOrSink.isSource()) {
-					return false;
+			this.lastRefresh = System.currentTimeMillis();
+			final long localLastRefresh = this.lastRefresh;
+
+			new Thread(() -> {
+				try {
+					Thread.sleep(500);
+				} catch (final InterruptedException e) {
+					// do nothing
 				}
-				for (final String part : newValue.toLowerCase().split(" ")) {
-					if (!sourceOrSink.getStatement().toLowerCase().contains(part)
-							&& !sourceOrSink.getTestcaseComplete().toLowerCase().contains(part)) {
-						return false;
-					}
+
+				if (this.lastRefresh == localLastRefresh) {
+					filteredData.setPredicate(sourceOrSink -> {
+						if (this.hideUnchecked && !sourceOrSink.isSink() && !sourceOrSink.isSource()) {
+							return false;
+						}
+						for (final String part : newValue.toLowerCase().split(" ")) {
+							if (!sourceOrSink.getStatement().toLowerCase().contains(part)
+									&& (sourceOrSink.getTestcaseComplete() != null
+											&& !sourceOrSink.getTestcaseComplete().toLowerCase().contains(part))) {
+								return false;
+							}
+						}
+						return true;
+					});
 				}
-				return true;
-			});
+			}).start();
 		});
 		MenuBar.hideBtn.onMouseClickedProperty().set(new EventHandler<MouseEvent>() {
 			@Override
@@ -177,8 +193,8 @@ public class SourceAndSinkSelector extends TableView<SourceOrSink> {
 		});
 		this.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
 			if (newSelection != null) {
-				Statistics.getInstance().setInformation(
-						"Reference:\n" + Helper.toString(this.getSelectionModel().getSelectedItem().getReference()));
+				Statistics.getInstance().setInformation("Reference:\n"
+						+ Helper.toString(this.getSelectionModel().getSelectedItem().getReference(), "\n->"));
 			}
 		});
 

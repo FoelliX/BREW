@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,10 +21,15 @@ import de.foellix.aql.datastructure.KeywordsAndConstants;
 import de.foellix.aql.datastructure.handler.AnswerHandler;
 import de.foellix.aql.ggwiz.BREW;
 import de.foellix.aql.ggwiz.Data;
-import de.foellix.aql.ggwiz.EqualsHelper;
 import de.foellix.aql.ggwiz.MenuBar;
+import de.foellix.aql.ggwiz.config.Config;
+import de.foellix.aql.ggwiz.rules.Priority;
+import de.foellix.aql.ggwiz.rules.Rule;
+import de.foellix.aql.ggwiz.rules.RuleHandler;
 import de.foellix.aql.ggwiz.sourceandsinkselector.SourceOrSink;
 import de.foellix.aql.ggwiz.testcaseselector.Testcase;
+import de.foellix.aql.helper.EqualsHelper;
+import de.foellix.aql.helper.EqualsOptions;
 import de.foellix.aql.helper.Helper;
 import de.foellix.aql.system.IAnswerAvailable;
 import de.foellix.aql.system.System;
@@ -31,7 +37,6 @@ import de.foellix.aql.ui.gui.FontAwesome;
 import javafx.application.Platform;
 
 public class Runner implements IAnswerAvailable {
-	private static final String COMBINER_KEYWORD = "COMBINE";
 	private static final int ABORTED = -1;
 
 	private static final File DATABASE_PROPERTIES = new File("data/db_config.properties");
@@ -70,6 +75,13 @@ public class Runner implements IAnswerAvailable {
 	private void init() {
 		if (this.parent != null || this.current == null) {
 			this.aqlSystem = new System();
+			if (!Config.getInstance().getProperties().getProperty(Config.CONNECT_OPERATOR).equals("")
+					&& !Config.getInstance().getProperties().getProperty(Config.CONNECT_OPERATOR).equals(" ")
+					&& !Config.getInstance().getProperties().getProperty(Config.CONNECT_OPERATOR)
+							.equals(KeywordsAndConstants.getConnectOperator())) {
+				KeywordsAndConstants.overwriteConnectOperator(
+						Config.getInstance().getProperties().getProperty(Config.CONNECT_OPERATOR));
+			}
 			this.aqlSystem.setStoreAnswers(false);
 			if (BREW.getTimeout() > 0) {
 				this.aqlSystem.getScheduler().setTimeout(BREW.getTimeout());
@@ -111,7 +123,8 @@ public class Runner implements IAnswerAvailable {
 		if (ConfigHandler.getInstance().getConfig().getPreprocessors() != null
 				&& ConfigHandler.getInstance().getConfig().getPreprocessors().getTool() != null) {
 			for (final Tool tool : ConfigHandler.getInstance().getConfig().getPreprocessors().getTool()) {
-				if (tool.getQuestions().contains(COMBINER_KEYWORD)) {
+				if (tool.getQuestions()
+						.contains(Config.getInstance().getProperties().getProperty(Config.COMBINER_KEYWORD))) {
 					this.combinerAvailable = true;
 					break;
 				}
@@ -210,13 +223,116 @@ public class Runner implements IAnswerAvailable {
 	}
 
 	public String getQuery(boolean viewOnly) {
+		// Get initial query
+		String query = getQueryWithoutRules(viewOnly);
+		if (query == null) {
+			if (Boolean.valueOf(Config.getInstance().getProperties().getProperty(Config.ASSUME_EXTERNAL_COMBINER))
+					.booleanValue()) {
+				Log.warning("Assuming external preprocessor for keyword: "
+						+ Config.getInstance().getProperties().getProperty(Config.COMBINER_KEYWORD));
+				query = getQueryWithoutRules(viewOnly, true);
+			}
+		}
+
+		// Find rule with highest priority
+		final List<String> features = getQueryFeaturing(true);
+		Rule ruleToApply = null;
+		int highestPriority = 0;
+		for (final Rule rule : RuleHandler.getInstance().getActiveRules()) {
+			if (ruleFits(rule, features)) {
+				final int prio = rulePriority(rule, features, true);
+				if (prio > highestPriority) {
+					ruleToApply = rule;
+					highestPriority = prio;
+				}
+			}
+		}
+
+		// Apply rule
+		if (ruleToApply != null) {
+			// Replace query
+			String replaceQuery = query;
+			if (replaceQuery.endsWith("?")) {
+				replaceQuery = replaceQuery.substring(0, replaceQuery.lastIndexOf("?"));
+				while (replaceQuery.endsWith(" ")) {
+					replaceQuery = replaceQuery.substring(0, replaceQuery.length() - 1);
+				}
+			}
+			replaceQuery = replaceQuery.replaceAll("\\\\", "\\\\\\\\");
+			query = ruleToApply.getQuery().replaceAll(RuleHandler.REPLACE_QUERY, replaceQuery);
+			if (query.endsWith("] ?") || query.endsWith("]?")) {
+				query = query.substring(0, query.length() - 1);
+			}
+
+			// Replace apps
+			final File fromApk = new File(this.current.getFrom().getReference().getApp().getFile());
+			final File toApk = new File(this.current.getTo().getReference().getApp().getFile());
+			final List<String> apps = getInvolvedApps(fromApk, toApk);
+			for (int i = 0; i < apps.size(); i++) {
+				query = query.replaceAll(RuleHandler.REPLACE_FILE.replace("#", Integer.valueOf(i + 1).toString()),
+						"'" + apps.get(i).replaceAll("\\\\", "\\\\\\\\") + "'");
+			}
+
+			// Replace features
+			String allFeatures = "";
+			for (int i = 0; i < features.size(); i++) {
+				query = query.replaceAll(RuleHandler.REPLACE_FEATURE.replace("#", Integer.valueOf(i + 1).toString()),
+						"'" + features.get(i) + "'");
+				allFeatures = allFeatures + (allFeatures.equals("") ? "'" : ", '") + features.get(i) + "'";
+			}
+			query = query.replaceAll(RuleHandler.REPLACE_FEATURES, allFeatures);
+
+			return query;
+		}
+		return query;
+	}
+
+	private boolean ruleFits(Rule rule, List<String> features) {
+		if (rule.isAlways()) {
+			return true;
+		} else {
+			for (final Priority prio : rule.getPriority()) {
+				boolean applicable = true;
+				for (final String feature : prio.getFeature().replaceAll(" ", "").split(",")) {
+					if (!features.contains(feature)) {
+						applicable = false;
+						break;
+					}
+				}
+				if (applicable) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	private int rulePriority(Rule rule, List<String> features, boolean ruleFits) {
+		int value = 0;
+		for (final Priority prio : rule.getPriority()) {
+			if (prio.getFeature() == null || prio.getFeature().isEmpty() || ruleFits) {
+				value += prio.getValue().intValue();
+			}
+		}
+		return value;
+	}
+
+	public String getQueryWithoutRules() {
+		return getQueryWithoutRules(false);
+	}
+
+	public String getQueryWithoutRules(boolean viewOnly) {
+		return getQueryWithoutRules(viewOnly, false);
+	}
+
+	public String getQueryWithoutRules(boolean viewOnly, boolean overrideCombinerAvaiable) {
 		String query;
 		if ((Data.getInstance().getMapR().get(this.current.getFrom()).getCombine() != null
 				&& !Data.getInstance().getMapR().get(this.current.getFrom()).getCombine().equals(""))
 				|| (Data.getInstance().getMapR().get(this.current.getTo()).getCombine() != null
 						&& !Data.getInstance().getMapR().get(this.current.getTo()).getCombine().equals(""))) {
 			if (this.combineApks) {
-				if (this.combinerAvailable) {
+				if (this.combinerAvailable || overrideCombinerAvaiable) {
 					// combine
 					String appIDs = Data.getInstance().getMapR().get(this.current.getFrom()).getCombine();
 					if (appIDs != null && !appIDs.equals("")) {
@@ -243,52 +359,37 @@ public class Runner implements IAnswerAvailable {
 					final File toApk = new File(this.current.getTo().getReference().getApp().getFile());
 					if (!apps.contains(fromApk.getAbsolutePath())) {
 						if (!apps.equals("")) {
-							apps += " " + fromApk.getAbsolutePath();
+							apps += ", " + fromApk.getAbsolutePath();
 						} else {
 							apps = fromApk.getAbsolutePath();
 						}
 					}
 					if (!apps.contains(toApk.getAbsolutePath())) {
 						if (!apps.equals("")) {
-							apps += " " + toApk.getAbsolutePath();
+							apps += ", " + toApk.getAbsolutePath();
 						} else {
 							apps = toApk.getAbsolutePath();
 						}
 					}
 					// query
-					query = "Flows IN App('" + apps + "' | '" + COMBINER_KEYWORD + "'"
+					query = "Flows IN App('" + apps + "' | '"
+							+ Config.getInstance().getProperties().getProperty(Config.COMBINER_KEYWORD) + "'"
 							+ getQueryKeywords(getQueryFeaturing()) + ") "
 							+ getQueryFeaturingString(getQueryFeaturing()) + "?";
 				} else {
-					if (!viewOnly) {
+					if (!viewOnly && !Boolean
+							.valueOf(Config.getInstance().getProperties().getProperty(Config.ASSUME_EXTERNAL_COMBINER))
+							.booleanValue()) {
 						answerAvailable(new Answer(), KeywordsAndConstants.ANSWER_STATUS_UNKNOWN);
 					}
 					query = null;
 				}
 			} else {
 				// search apps & bridges
-				String appIDs = Data.getInstance().getMapR().get(this.current.getFrom()).getCombine();
-				if (appIDs != null && !appIDs.equals("")) {
-					appIDs += "," + Data.getInstance().getMapR().get(this.current.getTo()).getCombine();
-				} else {
-					appIDs = Data.getInstance().getMapR().get(this.current.getTo()).getCombine();
-				}
-				final List<String> apps = new ArrayList<>();
 				final File fromApk = new File(this.current.getFrom().getReference().getApp().getFile());
 				final File toApk = new File(this.current.getTo().getReference().getApp().getFile());
-				apps.add(fromApk.getAbsolutePath());
-				if (!fromApk.getAbsolutePath().equals(toApk.getAbsolutePath())) {
-					apps.add(toApk.getAbsolutePath());
-				}
-				for (final String id : appIDs.replace(" ", "").split(",")) {
-					for (final Testcase testcase : Data.getInstance().getTestcases()) {
-						if (testcase.getId() == Integer.valueOf(id).intValue()) {
-							if (!apps.contains(testcase.getApk().getAbsolutePath())) {
-								apps.add(testcase.getApk().getAbsolutePath());
-							}
-						}
-					}
-				}
+				final List<String> apps = getInvolvedApps(fromApk, toApk);
+
 				// query
 				if (apps.size() == 1) {
 					query = "Flows IN App('" + fromApk.getAbsolutePath() + "'" + getQueryKeywords(getQueryFeaturing())
@@ -300,9 +401,11 @@ public class Runner implements IAnswerAvailable {
 							+ getQueryKeywords(getQueryFeaturing(this.current.getTo())) + ") "
 							+ getQueryFeaturingString(getQueryFeaturing()) + "?";
 				} else {
-					query = "CONNECT [ ";
+					final String start = Config.getInstance().getProperties().getProperty(Config.CONNECT_OPERATOR)
+							+ " [ ";
+					query = start;
 					for (final String app : apps) {
-						if (!query.equals("CONNECT [ ")) {
+						if (!query.equals(start)) {
 							query += ", ";
 						}
 						boolean addedfrom = false;
@@ -334,12 +437,45 @@ public class Runner implements IAnswerAvailable {
 		return query;
 	}
 
+	private List<String> getInvolvedApps(File fromApk, File toApk) {
+		// Get IDs
+		String appIDs = Data.getInstance().getMapR().get(this.current.getFrom()).getCombine();
+		if (appIDs != null && !appIDs.equals("")) {
+			appIDs += "," + Data.getInstance().getMapR().get(this.current.getTo()).getCombine();
+		} else {
+			appIDs = Data.getInstance().getMapR().get(this.current.getTo()).getCombine();
+		}
+
+		// Get apps
+		final List<String> apps = new ArrayList<>();
+		apps.add(fromApk.getAbsolutePath());
+		if (!fromApk.getAbsolutePath().equals(toApk.getAbsolutePath())) {
+			apps.add(toApk.getAbsolutePath());
+		}
+		for (final String id : appIDs.replace(" ", "").split(",")) {
+			if (!id.equals("")) {
+				for (final Testcase testcase : Data.getInstance().getTestcases()) {
+					if (testcase.getId() == Integer.valueOf(id).intValue()) {
+						if (!apps.contains(testcase.getApk().getAbsolutePath())) {
+							apps.add(testcase.getApk().getAbsolutePath());
+						}
+					}
+				}
+			}
+		}
+		return apps;
+	}
+
 	private List<String> getQueryFeaturing() {
+		return getQueryFeaturing(false);
+	}
+
+	private List<String> getQueryFeaturing(boolean includeAlwaysFeature) {
 		if (this.current.getFrom() == null && this.current.getTo() == null) {
 			return null;
 		}
 		// Get features
-		final List<String> currentFeatures;
+		List<String> currentFeatures = null;
 		if (this.current.getFrom() == null) {
 			currentFeatures = Data.getInstance().getMapR().get(this.current.getFrom()).getFeatures();
 			if (this.current.getTo() == null) {
@@ -353,6 +489,30 @@ public class Runner implements IAnswerAvailable {
 		} else {
 			currentFeatures = Data.getInstance().getMapR().get(this.current.getTo()).getFeatures();
 		}
+
+		// Get always features
+		if (includeAlwaysFeature) {
+			if (Config.getInstance().getProperties().getProperty(Config.ALWAYS_FEATURE_FLOWS) != null
+					&& !Config.getInstance().getProperties().getProperty(Config.ALWAYS_FEATURE_FLOWS).equals("")) {
+				for (final String alwaysFeature : Config.getInstance().getProperties()
+						.getProperty(Config.ALWAYS_FEATURE_FLOWS).replaceAll(" ", "").split(",")) {
+					if (currentFeatures != null) {
+						if (!currentFeatures.contains(alwaysFeature)) {
+							if (currentFeatures instanceof AbstractList) {
+								final List<String> temp = new ArrayList<>();
+								temp.addAll(currentFeatures);
+								currentFeatures = temp;
+							}
+							currentFeatures.add(alwaysFeature);
+						}
+					} else {
+						currentFeatures = new ArrayList<>();
+						currentFeatures.add(alwaysFeature);
+					}
+				}
+			}
+		}
+
 		return currentFeatures;
 	}
 
@@ -362,33 +522,64 @@ public class Runner implements IAnswerAvailable {
 
 	private String getQueryFeaturingString(List<String> currentFeatures) {
 		// Build and return string
-		if (currentFeatures == null || currentFeatures.isEmpty()) {
-			return "";
-		} else {
+		boolean featuresAvailable = false;
+
+		if (currentFeatures != null) {
 			final StringBuilder featuring = new StringBuilder("FEATURING ");
 			boolean first = true;
-			for (final String feature : currentFeatures) {
-				if (first) {
-					first = false;
-				} else {
-					featuring.append(", ");
+			if (Config.getInstance().getProperties().getProperty(Config.ALWAYS_FEATURE_FLOWS) != null
+					&& !Config.getInstance().getProperties().getProperty(Config.ALWAYS_FEATURE_FLOWS).equals("")) {
+				featuresAvailable = true;
+				for (final String alwaysFeature : Config.getInstance().getProperties()
+						.getProperty(Config.ALWAYS_FEATURE_FLOWS).replaceAll(" ", "").split(",")) {
+					if (!currentFeatures.contains(alwaysFeature)) {
+						if (first) {
+							first = false;
+						} else {
+							featuring.append(", ");
+						}
+						featuring.append("'" + alwaysFeature + "'");
+					}
 				}
-				featuring.append("'" + feature + "'");
+			}
+			if (currentFeatures != null && !currentFeatures.isEmpty()) {
+				featuresAvailable = true;
+				for (final String feature : currentFeatures) {
+					if (first) {
+						first = false;
+					} else {
+						featuring.append(", ");
+					}
+					featuring.append("'" + Config.getInstance().getFeature(feature) + "'");
+				}
 			}
 			featuring.append(" ");
-			return featuring.toString();
+
+			if (featuresAvailable) {
+				return featuring.toString();
+			}
 		}
+		return "";
 	}
 
 	private String getQueryKeywords(List<String> currentFeatures) {
+		// Considers Feature <-> Preprocessor keyword matches
 		if (currentFeatures != null && ConfigHandler.getInstance().getConfig().getPreprocessors() != null
 				&& ConfigHandler.getInstance().getConfig().getPreprocessors().getTool() != null
 				&& !ConfigHandler.getInstance().getConfig().getPreprocessors().getTool().isEmpty()) {
 			final StringBuilder sb = new StringBuilder();
+			if (Config.getInstance().getProperties().getProperty(Config.ALWAYS_PREPROCESS) != null
+					&& !Config.getInstance().getProperties().getProperty(Config.ALWAYS_PREPROCESS).equals("")) {
+				for (final String alwaysPreprocessor : Config.getInstance().getProperties()
+						.getProperty(Config.ALWAYS_PREPROCESS).replaceAll(" ", "").split(",")) {
+					sb.append(" | '" + alwaysPreprocessor + "'");
+				}
+			}
 			for (final String keyword : currentFeatures) {
 				for (final Tool preprocessor : ConfigHandler.getInstance().getConfig().getPreprocessors().getTool()) {
-					if (keyword.equals(preprocessor.getQuestions())) {
-						sb.append(" | '" + keyword + "'");
+					if (keyword.equals(preprocessor.getQuestions())
+							|| Config.getInstance().getKeyword(keyword).equals(preprocessor.getQuestions())) {
+						sb.append(" | '" + Config.getInstance().getKeyword(keyword) + "'");
 					}
 				}
 			}
@@ -418,11 +609,16 @@ public class Runner implements IAnswerAvailable {
 				Log.msg("Case: " + this.current.getCase() + ": Failed!", Log.NORMAL);
 			}
 		}
+		this.current.setActualAnswer(answer);
 
 		// Insert to database (if accessible)
 		if (this.databaseExport) {
-			if (!databaseInsert(answer, (this.current.isAborted() ? ABORTED : this.current.getStatus()))) {
-				Log.warning("Database not accessible!");
+			if (databaseAvailable()) {
+				if (!databaseInsert(answer, (this.current.isAborted() ? ABORTED : this.current.getStatus()))) {
+					Log.warning("Database not accessible!");
+				}
+			} else {
+				Log.warning("Database not available!");
 			}
 		}
 
@@ -436,11 +632,14 @@ public class Runner implements IAnswerAvailable {
 	 * @param contains
 	 */
 	private boolean contains(final Answer answer, final Answer contains) {
+		final EqualsOptions options = new EqualsOptions();
+		options.setOption(EqualsOptions.IGNORE_APP, true);
+
 		if (contains.getFlows() != null && contains.getFlows().getFlow() != null) {
 			if (answer.getFlows() != null && answer.getFlows().getFlow() != null) {
 				for (final Flow needle : contains.getFlows().getFlow()) {
 					for (final Flow flow : answer.getFlows().getFlow()) {
-						if (EqualsHelper.equalsIgnoreApp(needle, flow)) {
+						if (EqualsHelper.equals(needle, flow, options)) {
 							return true;
 						}
 					}
@@ -452,15 +651,21 @@ public class Runner implements IAnswerAvailable {
 		}
 	}
 
+	private boolean databaseAvailable() {
+		try {
+			this.dataSource.getConnection();
+		} catch (final Exception e) {
+			return false;
+		}
+		return true;
+	}
+
 	private boolean databaseInsert(Answer answer, int status) {
 		try {
 			final Connection conn = this.dataSource.getConnection();
 			final Statement stmt = conn.createStatement();
 			final StringBuilder query = new StringBuilder();
-			String configString = new File("config.xml").getAbsolutePath();
-			if (BREW.getConfig() != null) {
-				configString = new File(BREW.getConfig()).getAbsolutePath();
-			}
+			final String configString = ConfigHandler.getInstance().getConfigFile().getAbsolutePath();
 
 			// Load actual answer
 			final File expected = getFile(this.current, true);
@@ -473,9 +678,12 @@ public class Runner implements IAnswerAvailable {
 					"INSERT INTO `cases`(`testcase`, `status`, `query`, `source`, `sink`, `truepositive`, `falsepositive`, `duration`, `config`, `expected`, `actual`, `entered`) VALUES ('"
 							+ this.current.getId() + "', '" + status + "', '"
 							+ getQuery().replaceAll("\\\\", "/").replaceAll("'", "\\\\'") + "', '"
-							+ Helper.toString(this.current.getFrom().getReference()).replaceAll("\\\\", "/") + "', '"
-							+ Helper.toString(this.current.getTo().getReference()).replaceAll("\\\\", "/") + "', '"
-							+ (this.current.isTruepositive() ? 1 : 0) + "', '"
+							+ Helper.toString(this.current.getFrom().getReference()).replaceAll("\\\\", "/")
+									.replaceAll("'", "\\\\'")
+							+ "', '"
+							+ Helper.toString(this.current.getTo().getReference()).replaceAll("\\\\", "/")
+									.replaceAll("'", "\\\\'")
+							+ "', '" + (this.current.isTruepositive() ? 1 : 0) + "', '"
 							+ (this.current.isFalsepositive() ? 1 : 0) + "', '" + this.current.getDuration() + "', '"
 							+ configString.replaceAll("\\\\", "/") + "', '"
 							+ expected.getAbsolutePath().replaceAll("\\\\", "/") + "', '"

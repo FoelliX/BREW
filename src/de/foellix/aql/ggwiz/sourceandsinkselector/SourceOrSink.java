@@ -4,7 +4,8 @@ import java.io.Serializable;
 
 import de.foellix.aql.datastructure.Reference;
 import de.foellix.aql.ggwiz.Data;
-import de.foellix.aql.ggwiz.EqualsHelper;
+import de.foellix.aql.helper.EqualsHelper;
+import de.foellix.aql.helper.EqualsOptions;
 
 public class SourceOrSink implements Serializable {
 	private static final long serialVersionUID = -5434428962258152698L;
@@ -36,8 +37,8 @@ public class SourceOrSink implements Serializable {
 	public boolean equals(Object obj) {
 		if (obj instanceof SourceOrSink) {
 			final SourceOrSink temp = (SourceOrSink) obj;
-			if (EqualsHelper.equals(this.reference.getStatement(), temp.getReference().getStatement())
-					&& EqualsHelper.equals(this.reference, temp.getReference())) {
+			if (EqualsHelper.equals(this.reference, temp.getReference(),
+					new EqualsOptions().setOption(EqualsOptions.PRECISELY_REFERENCE, true))) {
 				return true;
 			}
 		}
@@ -66,6 +67,9 @@ public class SourceOrSink implements Serializable {
 	}
 
 	public String getTestcaseComplete() {
+		if (Data.getInstance().getMapR().get(this) == null) {
+			return null;
+		}
 		return Data.getInstance().getMapR().get(this).getId() + ": " + Data.getInstance().getMapR().get(this).getName();
 	}
 

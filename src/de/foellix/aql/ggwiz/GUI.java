@@ -25,6 +25,8 @@ import de.foellix.aql.ggwiz.tpfpselector.Exporter;
 import de.foellix.aql.ggwiz.tpfpselector.Runner;
 import de.foellix.aql.ggwiz.tpfpselector.TPFP;
 import de.foellix.aql.ggwiz.tpfpselector.TPFPSelector;
+import de.foellix.aql.helper.EqualsHelper;
+import de.foellix.aql.helper.EqualsOptions;
 import de.foellix.aql.helper.Helper;
 import de.foellix.aql.ui.gui.ExitDialog;
 import de.foellix.aql.ui.gui.LoadingDialog;
@@ -116,7 +118,7 @@ public class GUI extends Application {
 		this.loadAnswerDialog.setSelectedExtensionFilter(xmlFilter);
 
 		// Splash Screen
-		final SplashScreen splashScreen = new SplashScreen(Properties.info().ABBRRVIATION + " - "
+		final SplashScreen splashScreen = new SplashScreen(Properties.info().ABBREVIATION + " - "
 				+ Properties.info().NAME + " (v. " + Properties.info().VERSION + ")", "by " + Properties.info().AUTHOR,
 				Color.WHITE);
 		new Thread(() -> {
@@ -167,7 +169,7 @@ public class GUI extends Application {
 			this.stage.setTitle(
 					"BREW - TestCase Selector (" + Data.getInstance().getCurrentSaveFile().getAbsolutePath() + ")");
 			if (this.testCaseSelector == null) {
-				this.testCaseSelector = new TestCaseSelector();
+				this.testCaseSelector = new TestCaseSelector(this.stage);
 			}
 			this.mainPane.setCenter(this.testCaseSelector);
 			break;
@@ -235,7 +237,7 @@ public class GUI extends Application {
 
 	public void newSetup() {
 		Data.getInstance().setCurrentSaveFile(null);
-		Data.init();
+		Data.init(null);
 		this.testCaseSelector = null;
 		this.sourceAndSinksSelector = null;
 		this.tpfpSelector = null;
@@ -254,7 +256,7 @@ public class GUI extends Application {
 			final LoadingDialog loadingDialog = new LoadingDialog("Opening");
 			new Thread(() -> {
 				Data.getInstance().setCurrentSaveFile(openFile);
-				Data.init();
+				Data.init(openFile);
 				this.testCaseSelector = null;
 				this.sourceAndSinksSelector = null;
 				this.tpfpSelector = null;
@@ -385,7 +387,9 @@ public class GUI extends Application {
 	}
 
 	public void exit() {
-		new ExitDialog("Exit", "You will exit the GGWiz now.\n(All unsaved changes will be lost.)", "Proceed?");
+		new ExitDialog("Exit",
+				"You will exit the " + Properties.info().ABBREVIATION + " now.\n(All unsaved changes will be lost.)",
+				"Proceed?");
 	}
 
 	private List<File> findAPKsRecursively(File folder) {
@@ -451,20 +455,24 @@ public class GUI extends Application {
 
 	private void markSuccessfulResultBasedSerializableFinished(Data load) {
 		for (int i = 0; i < load.getTPFPList().size(); i++) {
-			if (load.getTPFPList().get(i).getStatus() == TPFP.SUCCESSFUL) {
-				if (Data.getInstance().getTPFPs().size() >= i
-						&& load.getTPFPList().get(i).equals(Data.getInstance().getTPFPs().get(i))) {
-					Data.getInstance().getTPFPs().get(i).setStatus(TPFP.SUCCESSFUL);
-					Log.msg("Marked " + Data.getInstance().getTPFPs().get(i).getId(), Log.DEBUG);
-				} else {
-					for (final TPFP tpfp : Data.getInstance().getTPFPs()) {
-						if (load.getTPFPList().get(i).equals(tpfp)) {
-							tpfp.setStatus(TPFP.SUCCESSFUL);
-							Log.msg("Marked " + tpfp.getId(), Log.DEBUG);
-							break;
+			try {
+				if (i < load.getTPFPList().size() && load.getTPFPList().get(i).getStatus() == TPFP.SUCCESSFUL) {
+					if (Data.getInstance().getTPFPs().size() >= i
+							&& load.getTPFPList().get(i).equals(Data.getInstance().getTPFPs().get(i))) {
+						Data.getInstance().getTPFPs().get(i).setStatus(TPFP.SUCCESSFUL);
+						Log.msg("Marked " + Data.getInstance().getTPFPs().get(i).getId(), Log.DEBUG);
+					} else {
+						for (final TPFP tpfp : Data.getInstance().getTPFPs()) {
+							if (load.getTPFPList().get(i).equals(tpfp)) {
+								tpfp.setStatus(TPFP.SUCCESSFUL);
+								Log.msg("Marked " + tpfp.getId(), Log.DEBUG);
+								break;
+							}
 						}
 					}
 				}
+			} catch (final IndexOutOfBoundsException e) {
+				break;
 			}
 		}
 
@@ -518,6 +526,9 @@ public class GUI extends Application {
 			final List<Integer> markedList = new ArrayList<>();
 
 			new Thread(() -> {
+				final EqualsOptions options = new EqualsOptions();
+				options.setOption(EqualsOptions.IGNORE_APP, true);
+
 				for (final Flow flow : collectedFlows) {
 					if (!SuSiLoader.getInstance().getIgnore()
 							.contains(flow.getReference().get(0).getStatement().getStatementgeneric())
@@ -527,19 +538,14 @@ public class GUI extends Application {
 						int count = 0;
 						for (final TPFP tpfp : Data.getInstance().getTPFPs()) {
 							if ((overapproximate
-									&& EqualsHelper.equalsIgnoreApp(Helper.getFrom(flow.getReference()),
-											tpfp.getFrom().getReference())
-									&& EqualsHelper.equalsIgnoreApp(Helper.getTo(flow.getReference()),
-											tpfp.getTo().getReference()))
+									&& EqualsHelper.equals(Helper.getFrom(flow), tpfp.getFrom().getReference(), options)
+									&& EqualsHelper.equals(Helper.getTo(flow.getReference()),
+											tpfp.getTo().getReference(), options))
 									|| (!overapproximate
-											&& EqualsHelper.equals(Helper.getFrom(flow.getReference()).getStatement(),
-													tpfp.getFrom().getReference().getStatement())
-											&& EqualsHelper.equals(Helper.getTo(flow.getReference()).getStatement(),
-													tpfp.getTo().getReference().getStatement())
-											&& EqualsHelper.equalsIgnoreApp(Helper.getFrom(flow.getReference()),
-													tpfp.getFrom().getReference())
-											&& EqualsHelper.equalsIgnoreApp(Helper.getTo(flow.getReference()),
-													tpfp.getTo().getReference()))) {
+											&& EqualsHelper.equals(Helper.getFrom(flow.getReference()),
+													tpfp.getFrom().getReference(), options)
+											&& EqualsHelper.equals(Helper.getTo(flow.getReference()),
+													tpfp.getTo().getReference(), options))) {
 								if (tpfp.isTruepositive()) {
 									tpfp.setStatus(TPFP.SUCCESSFUL);
 								} else {
@@ -578,7 +584,7 @@ public class GUI extends Application {
 
 	public void markSuccessfulResultBasedAQLAnswerFinished(List<Integer> list) {
 		for (final TPFP tpfp : Data.getInstance().getTPFPs()) {
-			if (tpfp.getStatus() != TPFP.SUCCESSFUL) {
+			if (tpfp.getStatus() == TPFP.DEFAULT) {
 				if (tpfp.isFalsepositive()) {
 					tpfp.setStatus(TPFP.SUCCESSFUL);
 				} else {

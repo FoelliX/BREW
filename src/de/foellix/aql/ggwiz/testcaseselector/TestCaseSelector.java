@@ -1,5 +1,6 @@
 package de.foellix.aql.ggwiz.testcaseselector;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -9,6 +10,7 @@ import de.foellix.aql.ggwiz.Data;
 import de.foellix.aql.ggwiz.MenuBar;
 import de.foellix.aql.ggwiz.Statistics;
 import de.foellix.aql.ggwiz.sourceandsinkselector.SourceOrSink;
+import de.foellix.aql.helper.FileRelocator;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.transformation.FilteredList;
@@ -29,20 +31,37 @@ import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
 
 public class TestCaseSelector extends TableView<Testcase> {
-	public TestCaseSelector() {
+	private FileRelocator fileRelocator;
+
+	private long lastRefresh;
+
+	public TestCaseSelector(Stage stage) {
 		super();
 
 		final FilteredList<Testcase> filteredData = new FilteredList<>(Data.getInstance().getTestcases());
 		MenuBar.searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-			filteredData.setPredicate(testcase -> {
-				for (final String part : newValue.toLowerCase().split(" ")) {
-					if (!testcase.getName().toLowerCase().contains(part)
-							&& !(testcase.getId() + ":").toLowerCase().contains(part)) {
-						return false;
-					}
+			this.lastRefresh = System.currentTimeMillis();
+			final long localLastRefresh = this.lastRefresh;
+
+			new Thread(() -> {
+				try {
+					Thread.sleep(500);
+				} catch (final InterruptedException e) {
+					// do nothing
 				}
-				return true;
-			});
+
+				if (this.lastRefresh == localLastRefresh) {
+					filteredData.setPredicate(testcase -> {
+						for (final String part : newValue.toLowerCase().split(" ")) {
+							if (!testcase.getName().toLowerCase().contains(part)
+									&& !(testcase.getId() + ":").toLowerCase().contains(part)) {
+								return false;
+							}
+						}
+						return true;
+					});
+				}
+			}).start();
 		});
 		this.setItems(filteredData);
 
@@ -111,6 +130,17 @@ public class TestCaseSelector extends TableView<Testcase> {
 				}
 				Data.getInstance().setTestcaseChangedFlag(true);
 				this.refresh();
+			} else if (event.getCode() == KeyCode.R) {
+				event.consume();
+				if (TestCaseSelector.this.fileRelocator == null) {
+					TestCaseSelector.this.fileRelocator = new FileRelocator(stage);
+				}
+				final File newApk = TestCaseSelector.this.fileRelocator
+						.relocateFile(getSelectionModel().getSelectedItem().getApk());
+				if (newApk != null && newApk.exists()) {
+					getSelectionModel().getSelectedItem().setApk(newApk);
+					refresh();
+				}
 			}
 			if (event.getCode() != KeyCode.UP && event.getCode() != KeyCode.DOWN) {
 				event.consume();
@@ -127,9 +157,19 @@ public class TestCaseSelector extends TableView<Testcase> {
 		});
 		this.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
 			if (newSelection != null) {
-				Statistics.getInstance()
-						.setInformation("Testcase:\n" + this.getSelectionModel().getSelectedItem().getId() + ": "
-								+ this.getSelectionModel().getSelectedItem().getName());
+				final StringBuilder sb = new StringBuilder();
+				sb.append("Testcase (" + (this.getSelectionModel().getSelectedItem().isActive() ? "Active" : "Inactive")
+						+ "):\n" + this.getSelectionModel().getSelectedItem().getId() + ") "
+						+ this.getSelectionModel().getSelectedItem().getName() + "\n");
+				if (this.getSelectionModel().getSelectedItem().getFeatures() != null
+						&& !this.getSelectionModel().getSelectedItem().getFeatures().isEmpty()) {
+					sb.append("\nFeatures: " + this.getSelectionModel().getSelectedItem().getFeaturesAsString());
+				}
+				if (this.getSelectionModel().getSelectedItem().getCombine() != null
+						&& !this.getSelectionModel().getSelectedItem().getCombine().isEmpty()) {
+					sb.append("\nCombine: " + this.getSelectionModel().getSelectedItem().getCombine());
+				}
+				Statistics.getInstance().setInformation(sb.toString());
 			}
 		});
 	}

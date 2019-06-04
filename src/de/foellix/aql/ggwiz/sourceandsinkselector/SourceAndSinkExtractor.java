@@ -90,7 +90,7 @@ public class SourceAndSinkExtractor {
 											reference.setApp(Helper.createApp(testcase.getApk()));
 											reference.setClassname(c.getName());
 											reference.setMethod(m.getSignature());
-											reference.setStatement(Helper.fromStatementString(u.toString()));
+											reference.setStatement(Helper.createStatement(u.toString()));
 
 											final SourceOrSink sourceOrSink = new SourceOrSink(false, false, reference);
 											if (oldList != null && !oldList.isEmpty()) {

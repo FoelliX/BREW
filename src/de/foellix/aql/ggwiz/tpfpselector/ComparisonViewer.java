@@ -77,9 +77,9 @@ public class ComparisonViewer extends Stage implements IGUI {
 		// Run
 		this.system.getAnswerReceivers().remove(this.viewerExpected.viewerXML);
 		this.system.getAnswerReceivers().remove(this.viewerExpected.viewerGraph);
+		this.system.getAnswerReceivers().remove(this.viewerExpected.viewerWeb);
 		this.viewerExpected.openAnswer(this.tpfp.toAnswer());
-		final Runner runner = new Runner(tpfp);
-		this.system.query(runner.getQuery());
+		this.viewerActual.openAnswer(this.tpfp.getActualAnswer());
 	}
 
 	@Override

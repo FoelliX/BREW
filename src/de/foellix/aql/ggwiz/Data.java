@@ -61,13 +61,23 @@ public class Data implements Serializable {
 
 	public static Data getInstance() {
 		if (instance == null) {
-			init();
+			init(null);
 		}
 		return instance;
 	}
 
 	public static void init() {
-		instance = load();
+		if (instance == null) {
+			init(null);
+		}
+	}
+
+	public static void init(File initialDataFile) {
+		if (initialDataFile != null && initialDataFile.exists()) {
+			instance = load(initialDataFile);
+		} else {
+			instance = load();
+		}
 		if (instance != null) {
 			if (instance.currentSaveFile == null || !instance.currentSaveFile.exists()) {
 				instance.currentSaveFile = new File("data/data.ser");

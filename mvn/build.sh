@@ -1,5 +1,9 @@
 #!/bin/bash
 
-mkdir target/build/answers
-mkdir target/build/data/storage
-mkdir target/build/output
+cd target/build
+mkdir answers
+mkdir storage
+mkdir output
+
+zip -u $1 tool.properties
+rm tool.properties

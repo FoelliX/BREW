@@ -23,7 +23,9 @@ public class TPFP implements Serializable {
 
 	private int id;
 	private final SourceOrSink from, to;
-	private boolean truepositive, falsepositive;
+	private Answer actual;
+
+	private boolean truepositive;
 	private int status;
 	private boolean aborted;
 	private long started, ended;
@@ -32,10 +34,10 @@ public class TPFP implements Serializable {
 		this.id = Data.getInstance().getTPFPId();
 		this.from = from;
 		this.to = to;
+		this.actual = null;
 
 		// Initialize
 		this.truepositive = true;
-		this.falsepositive = false;
 		this.status = DEFAULT;
 		this.aborted = false;
 		this.started = 0;
@@ -82,9 +84,9 @@ public class TPFP implements Serializable {
 				}
 			}
 		}
-		if (this.to.getCombine() != null) {
+		if (this.to.getCombine() != null && !this.to.getCombine().isEmpty()) {
 			for (final String idStr : this.to.getCombine().replace(" ", "").split(",")) {
-				if (!idStr.equals("")) {
+				if (idStr != null && !idStr.equals("null") && !idStr.isEmpty()) {
 					final int id = Integer.valueOf(idStr).intValue();
 					for (final SourceOrSink item : Data.getInstance().getSourcesAndSinks()) {
 						if (id == item.getId()) {
@@ -140,10 +142,14 @@ public class TPFP implements Serializable {
 	}
 
 	public String getTestcaseComplete() {
-		return Data.getInstance().getMapR().get(this.from).getId() + ": "
-				+ Data.getInstance().getMapR().get(this.from).getName() + " -> "
-				+ Data.getInstance().getMapR().get(this.to).getId() + ": "
-				+ Data.getInstance().getMapR().get(this.to).getName();
+		if (Data.getInstance().getMapR().get(this.from) == null || Data.getInstance().getMapR().get(this.to) == null) {
+			return null;
+		} else {
+			return Data.getInstance().getMapR().get(this.from).getId() + ": "
+					+ Data.getInstance().getMapR().get(this.from).getName() + " -> "
+					+ Data.getInstance().getMapR().get(this.to).getId() + ": "
+					+ Data.getInstance().getMapR().get(this.to).getName();
+		}
 	}
 
 	public void setId(int id) {
@@ -159,11 +165,11 @@ public class TPFP implements Serializable {
 	}
 
 	public boolean isFalsepositive() {
-		return this.falsepositive;
+		return !this.truepositive;
 	}
 
 	public void setFalsepositive(boolean falsepositive) {
-		this.falsepositive = falsepositive;
+		this.truepositive = !falsepositive;
 	}
 
 	public int getId() {
@@ -219,5 +225,13 @@ public class TPFP implements Serializable {
 
 	public int getDuration() {
 		return (int) ((this.ended - this.started) / 1000);
+	}
+
+	public Answer getActualAnswer() {
+		return this.actual;
+	}
+
+	public void setActualAnswer(Answer actual) {
+		this.actual = actual;
 	}
 }
