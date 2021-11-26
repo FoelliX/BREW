@@ -1,4 +1,6 @@
-% TODO: Complete this list
+% TODO: Complete list
+% TODO: Add SelfModification category
+% TODO: Add DynamicCodeLoading category
 
 % GUI
 <*: android.view.View findViewById(int)> -> GUI
@@ -27,9 +29,3 @@
 <*: android.content.SharedPreferences getSharedPreferences(java.lang.String,int)> -> SharedPreferences
 <android.content.SharedPreferences: java.lang.String getString(java.lang.String,java.lang.String)> -> SharedPreferences
 <android.content.SharedPreferences$Editor: android.content.SharedPreferences$Editor putString(java.lang.String,java.lang.String)> -> SharedPreferences
-
-% SelfModification
-% TODO!!!
-
-% DynamicCodeLoading
-% TODO!!!

@@ -1,67 +1,77 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-
-<!--
-%APP_APK%: 		.apk file
-%APP_APK_FILENAME%	Filename of .apk file without path and .apk
-%APP_NAME%: 		App name
-%APP_PACKAGE%:		App package
-%ANDROID_PLATFORMS%:	Android platforms folder
-%MEMORY%:		Memory
-%PID%			Process ID
-%ANSWERS%:		Input AQL-Answers for operators
-%ANSWERSHASH%:		SHA-256-hash of %ANSWERS%-String
-%RESULT_FILE%:		Result file for converter input
--->
-
 <config>
-	<androidPlatforms>/media/sf_sdks/platforms/</androidPlatforms>
-	<maxMemory>4</maxMemory>
-	<tools>
-		<tool name="PAndA2" version="1">
+    <androidPlatforms>path/to/android/platforms</androidPlatforms>
+    <androidBuildTools>path/to/android/build-tools</androidBuildTools>
+    <maxMemory>8</maxMemory>
+    <tools>
+        <tool name="AwesomeDroid" version="1.3.3.7" external="false">
+            <priority>2</priority>
+            <priority feature="TEST">2</priority>
+            <execute>
+                <run>/path/to/AwesomeDroid/run.sh %MEMORY% %ANDROID_PLATFORMS% %APP_APK%</run>
+                <result>/path/to/AwesomeDroid/results/%APP_APK_FILENAME%_result.txt</result>
+                <instances>0</instances>
+                <memoryPerInstance>4</memoryPerInstance>
+            </execute>
+            <path>/path/to/AwesomeDroid</path>
+            <runOnExit>/path/to/AQL-System/flushMemory.sh</runOnExit>
+            <runOnSuccess>/path/to/AwesomeDroid/success.sh</runOnSuccess>
+            <runOnFail>/path/to/AwesomeDroid/fail.sh</runOnFail>
+            <runOnAbort>/path/to/AQL-System/killpid.sh %PID%</runOnAbort>
+            <questions>IntraApp</questions>
+        </tool>
+		<tool name="AwesomeDroidExternal" version="1.3.3.7" external="true">
 			<priority>1</priority>
-			<path>/home/fpauck/tools/Android/AQL/tools/PAndA2/</path>
-			<run>/home/fpauck/tools/Android/AQL/tools/PAndA2/aqlRun.sh %MEMORY% %APP_APK% %APP_APK_FILENAME%_result.txt</run>
-			<result>/home/fpauck/tools/Android/AQL/tools/PAndA2/%APP_APK_FILENAME%_result.txt</result>
-			<questions>Permissions</questions>
-			<instances>0</instances>
-			<memoryPerInstance>2</memoryPerInstance>
-			<runOnExit>/media/sf_aqlsystem/flushMemory.sh</runOnExit>
-			<runOnAbort>/media/sf_aqlsystem/killpid.sh %PID%</runOnAbort>
-		</tool>
-		<tool name="FlowDroid" version="1">
-			<priority>1</priority>
-			<path>/home/fpauck/tools/Android/AQL/tools/FlowDroid</path>
-			<run>/home/fpauck/tools/Android/AQL/tools/FlowDroid/aqlRunSS.sh %MEMORY% %APP_APK% %ANDROID_PLATFORMS% %APP_APK_FILENAME%_result.txt SourcesAndSinks_std.txt</run>
-			<result>/home/fpauck/tools/Android/AQL/tools/FlowDroid/%APP_APK_FILENAME%_result.txt</result>
+			<execute>
+				<url>http://131.234.29.146/AQL-WebService/askAQL</url>
+                <username>free</username>
+                <password></password>
+			</execute>
+			<path>/path/to/AwesomeDroid/temp/</path>
 			<questions>IntraAppFlows</questions>
-			<instances>0</instances>
-			<memoryPerInstance>2</memoryPerInstance>
-			<runOnExit>/media/sf_aqlsystem/flushMemory.sh</runOnExit>
-			<runOnAbort>/media/sf_aqlsystem/killpid.sh %PID%</runOnAbort>
 		</tool>
-		<tool name="IC3" version="1">
-			<priority>1</priority>
-			<path>/home/fpauck/tools/Android/AQL/tools/linuxOnly/run</path>
-			<run>/home/fpauck/tools/Android/AQL/tools/linuxOnly/run/run3.sh -a %APP_APK% %MEMORY%</run>
-			<result>/home/fpauck/tools/Android/AQL/tools/linuxOnly/run/results/protobufs/%APP_PACKAGE%_1.dat</result>
-			<questions>Intentfilter, Intents, IntentSources, IntentSinks</questions>
-			<instances>1</instances>
-			<memoryPerInstance>2</memoryPerInstance>
-			<runOnExit>/media/sf_aqlsystem/flushMemory.sh</runOnExit>
-			<runOnAbort>/media/sf_aqlsystem/killpid.sh %PID%</runOnAbort>
-		</tool>
-	</tools>
-	<operators>
-		<tool name="PIM" version="1">
-			<priority>1</priority>
-			<path>/media/sf_pim</path>
-			<run>/media/sf_pim/aqlRun.sh %ANSWERS%</run>
-			<result>/media/sf_pim/result_%ANSWERSHASH%.xml</result>
-			<questions>CONNECT(*)</questions>
-			<instances>1</instances>
-			<memoryPerInstance>2</memoryPerInstance>
-			<runOnExit>/media/sf_ggwiz/flushMemory.sh</runOnExit>
-			<runOnAbort>/media/sf_ggwiz/killpid.sh %PID%</runOnAbort>
-		</tool>
-	</operators>
+    </tools>
+    <preprocessors>
+        <tool name="AwesomePreprocessor" version="1.3.3.8" external="false">
+            <priority>1</priority>
+            <execute>
+                <run>/path/to/AwesomePreprocessor/run.sh %APP_APK%</run>
+                <result>/path/to/AwesomePreprocessor/results/%APP_APK_FILENAME%_preprocessed.apk</result>
+                <instances>0</instances>
+                <memoryPerInstance>4</memoryPerInstance>
+            </execute>
+            <path>/path/to/AwesomePreprocessor</path>
+            <runOnExit>/path/to/AQL-System/flushMemory.sh</runOnExit>
+            <runOnAbort>/path/to/AQL-System/killpid.sh %PID%</runOnAbort>
+            <questions>TEST</questions>
+        </tool>
+    </preprocessors>
+    <operators>
+        <tool name="AwesomeOperator" version="1.3.3.9" external="false">
+            <priority>1</priority>
+            <execute>
+                <run>/path/to/AwesomeOperator/run.sh %ANSWERS%</run>
+                <result>/path/to/AwesomeOperator/results/%ANSWERSHASH%.xml</result>
+                <instances>1</instances>
+                <memoryPerInstance>4</memoryPerInstance>
+            </execute>
+            <path>/path/to/AwesomeOperator</path>
+            <runOnExit>/path/to/AQL-System/flushMemory.sh</runOnExit>
+            <runOnAbort>/path/to/AQL-System/killpid.sh %PID%</runOnAbort>
+            <questions>CONNECT(*)</questions>
+        </tool>
+    </operators>
+    <converters>
+        <tool name="AwesomeDroidConverter" version="1.3.3.7" external="false">
+            <priority>1</priority>
+            <execute>
+                <run>/path/to/AwesomeDroidConverter/run.sh %RESULT_FILE% results/%APP_APK_FILENAME%.xml</run>
+                <result>/path/to/AwesomeDroidConverter/results/%APP_APK_FILENAME%.xml</result>
+                <instances>0</instances>
+                <memoryPerInstance>4</memoryPerInstance>
+            </execute>
+            <path>/path/to/AwesomeDroidConverter</path>
+            <questions>AwesomeDroid</questions>
+        </tool>
+    </converters>
 </config>

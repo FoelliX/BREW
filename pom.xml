@@ -1,10 +1,8 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>de.foellix</groupId>
 	<artifactId>BREW</artifactId>
-	<version>1.2.0</version>
+	<version>2.0.0</version>
 	<packaging>jar</packaging>
 
 	<name>BREW</name>
@@ -12,53 +10,19 @@
 	<url>https://FoelliX.github.io/BREW</url>
 
 	<properties>
-		<project.build.sourceEncoding>ISO-8859-1</project.build.sourceEncoding>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<timestamp>${maven.build.timestamp}</timestamp>
 		<maven.build.timestamp.format>ddMMyyyyHHmmssS</maven.build.timestamp.format>
 	</properties>
 
-	<profiles>
-		<profile>
-			<id>Windows</id>
-			<activation>
-				<os>
-					<family>Windows</family>
-				</os>
-			</activation>
-			<properties>
-				<script.extension>.bat</script.extension>
-			</properties>
-		</profile>
-		<profile>
-			<id>unix</id>
-			<activation>
-				<os>
-					<family>unix</family>
-				</os>
-			</activation>
-			<properties>
-				<script.extension>.sh</script.extension>
-			</properties>
-		</profile>
-	</profiles>
-
 	<build>
-		<defaultGoal>clean install exec:exec</defaultGoal>
+		<defaultGoal>clean install</defaultGoal>
 		<directory>target</directory>
 
 		<outputDirectory>target/classes</outputDirectory>
 		<sourceDirectory>src</sourceDirectory>
+		<testSourceDirectory>testsrc</testSourceDirectory>
 		<resources>
-			<resource>
-				<directory>${project.basedir}</directory>
-				<includes>
-					<include>tool.properties</include>
-				</includes>
-				<filtering>true</filtering>
-				<targetPath>${project.basedir}/target/build</targetPath>
-			</resource>
 			<resource>
 				<directory>${project.basedir}</directory>
 				<includes>
@@ -79,6 +43,9 @@
 					<include>killpid.sh</include>
 					<include>*.xml</include>
 				</includes>
+				<excludes>
+					<exclude>AQL-Assembly.xml</exclude>
+				</excludes>
 				<targetPath>${project.basedir}/target/build</targetPath>
 			</resource>
 			<resource>
@@ -87,11 +54,16 @@
 					<include>**/*</include>
 				</includes>
 				<excludes>
-					<exclude>pscout/**/*</exclude>
 					<exclude>storage/**/*</exclude>
-					<exclude>gui/temp.png</exclude>
+					<exclude>temp/**/*</exclude>
+					<exclude>gui/web/temp/*</exclude>
 					<exclude>**/*.ser</exclude>
+					<exclude>**/*.zip</exclude>
 					<exclude>**/*.psd</exclude>
+					<exclude>ambiguityFixes*</exclude>
+					<exclude>SourcesAndSinks_*</exclude>
+					<exclude>taintbench_runs/**</exclude>
+					<exclude>android.jar</exclude>
 				</excludes>
 				<targetPath>${project.basedir}/target/build/data</targetPath>
 			</resource>
@@ -100,8 +72,18 @@
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
-				<version>3.1.0</version>
+				<version>3.3.0</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -112,13 +94,13 @@
 							<archive>
 								<manifest>
 									<mainClass>
-										de.foellix.aql.ggwiz.BREW
+										de.foellix.aql.brew.BREW
 									</mainClass>
 								</manifest>
 							</archive>
-							<descriptorRefs>
-								<descriptorRef>jar-with-dependencies</descriptorRef>
-							</descriptorRefs>
+							<descriptors>
+								<descriptor>mvn/AQL-Assembly.xml</descriptor>
+							</descriptors>
 							<outputDirectory>${project.basedir}/target/build</outputDirectory>
 							<finalName>${project.name}-${project.version}</finalName>
 							<appendAssemblyId>false</appendAssemblyId>
@@ -128,28 +110,34 @@
 			</plugin>
 
 			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>exec-maven-plugin</artifactId>
-				<version>1.6.0</version>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.0.0</version>
 				<executions>
 					<execution>
+						<id>create-empty-directories</id>
+						<phase>package</phase>
 						<goals>
-							<goal>exec</goal>
+							<goal>run</goal>
 						</goals>
+						<configuration>
+							<target>
+								<mkdir dir="${basedir}/target/build/answers" />
+								<mkdir dir="${basedir}/target/build/output" />
+								<mkdir dir="${basedir}/target/build/data/storage" />
+								<mkdir dir="${basedir}/target/build/data/temp" />
+								<chmod file="${basedir}/target/build/flushMemory.sh" perm="+x" type="file" />
+								<chmod file="${basedir}/target/build/killpid.sh" perm="+x" type="file" />
+							</target>
+						</configuration>
 					</execution>
 				</executions>
-				<configuration>
-					<executable>mvn/build${script.extension}</executable>
-					<arguments>
-						<argument>${project.name}-${project.version}.jar</argument>
-					</arguments>
-				</configuration>
 			</plugin>
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
-				<version>3.0.1</version>
+				<version>3.2.1</version>
 				<executions>
 					<execution>
 						<id>attach-sources</id>
@@ -158,6 +146,12 @@
 						</goals>
 					</execution>
 				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.2</version>
 			</plugin>
 		</plugins>
 	</build>
@@ -176,24 +170,38 @@
 		<dependency>
 			<groupId>ca.mcgill.sable</groupId>
 			<artifactId>soot</artifactId>
-			<version>3.0.0</version>
+			<version>3.3.0</version>
 		</dependency>
 
 		<!-- AQL Project -->
 		<dependency>
 			<groupId>de.foellix</groupId>
 			<artifactId>AQL-System</artifactId>
-			<version>1.2.0</version>
-			<scope>compile</scope>
+			<version>2.0.0</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.8.6</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter -->
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>5.8.1</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
 	<developers>
 		<developer>
 			<name>Felix Pauck</name>
-			<email>fpauck@mail.uni-paderborn.de</email>
-			<organization>Paderborn University</organization>
-			<organizationUrl>https://cs.uni-paderborn.de</organizationUrl>
+			<email>my@FoelliX.de</email>
+			<organization>FoelliX.de</organization>
+			<organizationUrl>https://FoelliX.de</organizationUrl>
 		</developer>
 	</developers>
 

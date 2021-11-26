@@ -1,25 +1,3 @@
-.table-row-cell .text, .table-row-cell:selected .text {
-	-fx-fill: #2B2B2B;
-}
-
-.table-row-cell {
-	-fx-border-color: #99999900;
-	-fx-border-width: 1;
-	-fx-table-cell-border-width: 0;
-	-fx-border-style: dashed;
-}
-
-.table-row-cell:selected {
-	-fx-table-cell-background-color: #999999FF;
-	-fx-border-color: #999999FF;
-	-fx-table-cell-border-color: #E9E9E9;
-}
-
-.check-box > .box {
-    -fx-border-color: #999999;
-	-fx-border-radius: 3;
-}
-
 .progress-indicator {
 	-fx-progress-color: #61794b;
 	-fx-background-radius:500px;
@@ -123,4 +101,10 @@
 .blue:pressed{
 	-fx-background-color: 
         #b5b5b5, #fcfcfc, #8cb8ff;
+}
+
+.root {
+    -fx-accent: #61794b;
+    -fx-focus-color: #AAAAAA;
+	-fx-faint-focus-color: #AAAAAA22;
 }
