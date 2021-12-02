@@ -17,6 +17,36 @@ Our wiki contains [tutorials](https://github.com/FoelliX/BREW/wiki) on how to us
 However, in order to execute benchmarks the underlying [AQL-System](https://github.com/FoelliX/AQL-System) must be configured.
 A tutorial that explains the configuration process can be found: [here](https://github.com/FoelliX/AQL-System/wiki/Configuration).
 
+### Execution
+In general BREW can be started with the following command ([Launch parameters](https://github.com/FoelliX/BREW/wiki/Launch_parameters)):  
+```bash
+java -jar BREW-2.0.0.jar
+```
+and build by:
+```bash
+cd /path/to/BREW
+mvn
+```
+
+### Video Tutorial
+[![Video](https://FoelliX.de/videos/tutorials/AQL/splash.png)](https://FoelliX.de/videos/tutorials/BREW/video_00.mp4)
+
+**Material:**
+- AQL-System [[Link]](https://github.com/FoelliX/AQL-System)
+- Configuration Wiki Page [[Link]](https://github.com/FoelliX/AQL-System/wiki/Configuration)
+- Configuration Tutorial Video [[Link]](https://github.com/FoelliX/AQL-System/wiki/Video_tutorials#video-00-configuring-an-aql-system)
+- AQL-WebService [[Github]](https://github.com/FoelliX/AQL-WebService)
+	- Online status [[Link]](http://vm-fpauck.cs.upb.de/AQL-WebService)
+	- Credentials (free account - limited query depth and number of queries per day):
+		- URL: `http://vm-fpauck.cs.upb.de/AQL-WebService/config`
+		- Username: `free`
+		- Password: *blank* (no password required)
+	- Credentials (private account):
+		- Contact FoelliX [[Mail]](mailto:aql-private-account@FoelliX.de)
+- Android platform files [[Download]](https://github.com/Sable/android-platforms)
+- DroidBench app `DirectLeak1.apk` [[Download]](https://github.com/secure-software-engineering/DroidBench/blob/develop/apk/AndroidSpecific/DirectLeak1.apk)
+
+
 ## Publications
 - *Do Android Taint Analysis Tools Keep Their Promises?* (Felix Pauck, Eric Bodden, Heike Wehrheim)  
 ESEC/FSE 2018 [https://dl.acm.org/citation.cfm?id=3236029](https://dl.acm.org/citation.cfm?id=3236029)
