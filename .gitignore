@@ -26,4 +26,4 @@
 /releases
 /target
 /vm
-test*
+./test*
